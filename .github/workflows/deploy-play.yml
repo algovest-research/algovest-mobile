@@ -1,0 +1,91 @@
+name: Deploy to Google Play
+
+# Publishes the app to Google Play whenever code lands on `dev`
+# (i.e. when a PR is merged into dev, or on a direct push). Uploads to the
+# INTERNAL testing track by default — promote to production from the console.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   PLAY_KEYSTORE_BASE64       base64 of your upload keystore .jks
+#                              (generate: `base64 -i upload-keystore.jks | pbcopy`)
+#   PLAY_KEYSTORE_PASSWORD     keystore (store) password
+#   PLAY_KEY_PASSWORD          key password
+#   PLAY_KEY_ALIAS             key alias (e.g. "upload")
+#   PLAY_SERVICE_ACCOUNT_JSON  full JSON of a Google Play service account that
+#                              has "Release to testing tracks" permission
+#
+# One-time prerequisites (see .github/PLAY_DEPLOY_SETUP.md):
+#   • The app already exists in Play Console (package com.algovest.algovest)
+#     and at least one AAB has been uploaded manually.
+#   • Play App Signing is enabled; the keystore above is your *upload* key.
+#   • The service account is linked under Play Console → Users and permissions.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-play
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Decode upload keystore
+        env:
+          PLAY_KEYSTORE_BASE64: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
+        run: echo "$PLAY_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.PLAY_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build App Bundle
+        # versionCode = run_number + offset, kept monotonically increasing and
+        # high enough not to collide with the manual first upload (Play rejects
+        # duplicate version codes). The version *name* still comes from pubspec.
+        run: flutter build appbundle --release --build-number=$(( ${{ github.run_number }} + 100 ))
+
+      - name: Upload to Google Play (internal track)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.algovest.algovest
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f android/app/upload-keystore.jks android/key.properties

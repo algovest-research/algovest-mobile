@@ -51,7 +51,9 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze
+        # Errors and warnings fail the build; style infos (e.g. withOpacity
+        # deprecations) are advisory and don't block a release.
+        run: flutter analyze --no-fatal-infos
 
       - name: Decode upload keystore
         env:

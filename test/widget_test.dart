@@ -1,30 +1,72 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Unit tests for the core JSON models. Kept dependency-free (no network/assets)
+// so they're fast and reliable in CI.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:algovest/main.dart';
+import 'package:algovest/core/models/report.dart';
+import 'package:algovest/core/models/stock_request.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Report.fromJson', () {
+    test('parses camelCase fields, rclass and agent votes', () {
+      final r = Report.fromJson({
+        'id': 'TCS.NS_1',
+        'ticker': 'TCS.NS',
+        'companyName': 'Tata Consultancy Services',
+        'date': '2 Jun 2026',
+        'isoDate': '2026-06-02T15:07:30',
+        'rating': 'HOLD',
+        'rclass': 'hold',
+        'arrow': '—',
+        'summary': 'Maintain position.',
+        'agentVotes': {'buy': 5, 'hold': 5, 'sell': 2},
+        'expectedReturn': null,
+      });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(r.ticker, 'TCS.NS');
+      expect(r.companyName, 'Tata Consultancy Services');
+      expect(r.rclass, RatingClass.hold);
+      expect(r.agentVotes.buy, 5);
+      expect(r.expectedReturn, isNull);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('parses trade outlook fields for buys', () {
+      final r = Report.fromJson({
+        'id': 'WIPRO.NS_1',
+        'ticker': 'WIPRO.NS',
+        'companyName': 'Wipro',
+        'date': '2 Jun 2026',
+        'isoDate': '2026-06-02T15:07:30',
+        'rating': 'BUY',
+        'rclass': 'buy',
+        'arrow': '▲',
+        'summary': 'Favourable risk/reward.',
+        'agentVotes': {'buy': 8, 'hold': 2, 'sell': 2},
+        'expectedReturn': 13.4,
+        'expectedReturnAnnualized': 39.8,
+        'priceTarget': 238.0,
+        'entryPrice': 209.84,
+        'timeHorizon': '3–6 months',
+      });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      expect(r.rclass, RatingClass.buy);
+      expect(r.expectedReturn, 13.4);
+      expect(r.priceTarget, 238.0);
+      expect(r.timeHorizon, '3–6 months');
+    });
+  });
+
+  group('StockRequest.fromJson', () {
+    test('parses status, strips the .NS suffix, and reads readiness', () {
+      final s = StockRequest.fromJson({
+        'ticker': 'HDFCBANK.NS',
+        'status': 'ready',
+        'requestedAt': '2026-06-02T13:13:57.531928',
+      });
+
+      expect(s.ticker, 'HDFCBANK.NS');
+      expect(s.symbol, 'HDFCBANK');
+      expect(s.isReady, isTrue);
+      expect(s.requestedAt, isNotNull);
+    });
   });
 }

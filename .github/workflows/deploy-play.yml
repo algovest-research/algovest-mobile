@@ -1,8 +1,8 @@
 name: Deploy to Google Play
 
-# Publishes the app to Google Play whenever code lands on `dev`
-# (i.e. when a PR is merged into dev, or on a direct push). Builds against the
-# PRODUCTION API (--dart-define) and ships to the PRODUCTION track at 100%.
+# Branch-based deploys to Google Play:
+#   • push/merge to `main` → PRODUCTION track (100%), built against the prod API
+#   • push/merge to `dev`  → INTERNAL testing track, built against the beta API
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   PLAY_KEYSTORE_BASE64       base64 of your upload keystore .jks
@@ -10,27 +10,33 @@ name: Deploy to Google Play
 #   PLAY_KEYSTORE_PASSWORD     keystore (store) password
 #   PLAY_KEY_PASSWORD          key password
 #   PLAY_KEY_ALIAS             key alias (e.g. "upload")
-#   PLAY_SERVICE_ACCOUNT_JSON  full JSON of a Google Play service account that
-#                              has "Release to testing tracks" permission
+#   PLAY_SERVICE_ACCOUNT_JSON  full JSON of a Google Play service account with
+#                              release permission on both tracks
 #
 # One-time prerequisites (see .github/PLAY_DEPLOY_SETUP.md):
-#   • The app already exists in Play Console (package com.algovest.algovest)
-#     and at least one AAB has been uploaded manually.
-#   • Play App Signing is enabled; the keystore above is your *upload* key.
-#   • The service account is linked under Play Console → Users and permissions.
+#   • The app exists in Play Console (package com.algovest.algovest) with one
+#     AAB uploaded manually; Play App Signing enabled (keystore = upload key).
+#   • Production releases also require a complete store listing (content rating,
+#     data safety, target audience, privacy policy, screenshots…).
 
 on:
   push:
-    branches: [dev]
+    branches: [main, dev]
   workflow_dispatch: {}
 
 concurrency:
-  group: deploy-play
+  # Independent per branch so a prod release and an internal build don't block.
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # main → production / prod API ; anything else (dev) → internal / beta API
+      IS_PROD: ${{ github.ref == 'refs/heads/main' }}
+      TRACK: ${{ github.ref == 'refs/heads/main' && 'production' || 'internal' }}
+      API_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://api.algovest.online' || 'https://api.beta.algovest.online' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,27 +83,27 @@ jobs:
         # versionCode = run_number + offset, kept monotonically increasing and
         # high enough not to collide with the manual first upload (Play rejects
         # duplicate version codes). The version *name* still comes from pubspec.
+        # API_BASE_URL is set per-branch in the job env above.
         run: |
+          echo "Building for track=$TRACK against $API_BASE_URL"
           flutter build appbundle --release \
             --build-number=$(( ${{ github.run_number }} + 100 )) \
-            --dart-define=API_BASE_URL=https://api.algovest.online
+            --dart-define=API_BASE_URL=$API_BASE_URL
 
-      # Always publish the signed bundle as a downloadable artifact so the very
-      # first (manual) Play Console upload can use a correctly upload-signed AAB.
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-aab
+          name: app-release-aab-${{ github.ref_name }}
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Upload to Google Play (production)
+      - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.algovest.algovest
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: production
+          track: ${{ env.TRACK }}
           status: completed
 
       - name: Clean up secrets

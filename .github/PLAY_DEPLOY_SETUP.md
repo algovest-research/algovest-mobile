@@ -52,8 +52,14 @@ Settings → Secrets and variables → Actions → *New repository secret*:
 
 ## Notes
 
-- **Track:** defaults to `internal`. To ship to production, change `track:` to
-  `production` in `deploy-play.yml` (consider a staged rollout).
+- **Branches/tracks:** push to **`main`** → **production** (built against
+  `https://api.algovest.online`); push to **`dev`** → **internal** testing
+  (built against `https://api.beta.algovest.online`). The API base URL is
+  injected at build time via `--dart-define=API_BASE_URL=…`; local builds with
+  no define default to beta.
+- **Production listing:** the production track also needs a complete store
+  listing (content rating, data safety, target audience, privacy policy,
+  screenshots) before Google accepts a release.
 - **Version code:** taken from `github.run_number` so every upload is unique.
   The version *name* still comes from `pubspec.yaml` (`version:`); bump it for
   user-visible releases.

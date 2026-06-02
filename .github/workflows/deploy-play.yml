@@ -1,8 +1,8 @@
 name: Deploy to Google Play
 
 # Publishes the app to Google Play whenever code lands on `dev`
-# (i.e. when a PR is merged into dev, or on a direct push). Uploads to the
-# INTERNAL testing track by default — promote to production from the console.
+# (i.e. when a PR is merged into dev, or on a direct push). Builds against the
+# PRODUCTION API (--dart-define) and ships to the PRODUCTION track at 100%.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   PLAY_KEYSTORE_BASE64       base64 of your upload keystore .jks
@@ -77,7 +77,10 @@ jobs:
         # versionCode = run_number + offset, kept monotonically increasing and
         # high enough not to collide with the manual first upload (Play rejects
         # duplicate version codes). The version *name* still comes from pubspec.
-        run: flutter build appbundle --release --build-number=$(( ${{ github.run_number }} + 100 ))
+        run: |
+          flutter build appbundle --release \
+            --build-number=$(( ${{ github.run_number }} + 100 )) \
+            --dart-define=API_BASE_URL=https://api.algovest.online
 
       # Always publish the signed bundle as a downloadable artifact so the very
       # first (manual) Play Console upload can use a correctly upload-signed AAB.
@@ -88,13 +91,13 @@ jobs:
           path: build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Upload to Google Play (internal track)
+      - name: Upload to Google Play (production)
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.algovest.algovest
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: internal
+          track: production
           status: completed
 
       - name: Clean up secrets

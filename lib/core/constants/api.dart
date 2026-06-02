@@ -1,7 +1,12 @@
 class ApiConstants {
   ApiConstants._();
 
-  static const baseUrl = 'https://api.beta.algovest.online';
+  // Build-time configurable. Defaults to beta for local dev; production builds
+  // pass --dart-define=API_BASE_URL=https://api.algovest.online (see CI).
+  static const baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://api.beta.algovest.online',
+  );
 
   // Auth
   static const sendOtp    = '/api/v1/auth/send-otp';

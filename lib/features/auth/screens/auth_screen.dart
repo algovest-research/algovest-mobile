@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/constants/api.dart';
@@ -239,7 +240,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         isEmail: _isEmail,
                         onChanged: (_) => setState(() => _contactError = null),
                         onSubmit: _sendOtp,
-                        onGuest: () => ref.read(authProvider.notifier).continueAsGuest(),
+                        onGuest: () {
+                          ref.read(authProvider.notifier).continueAsGuest();
+                          context.go('/dashboard');
+                        },
                       ),
                     _Step.otp => _OtpStep(
                         key: const ValueKey('otp'),

@@ -10,6 +10,8 @@ import '../../features/reports/screens/report_detail_screen.dart';
 import '../../features/screener/screens/screener_screen.dart';
 import '../../features/premium/screens/premium_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/watchlist/screens/watchlist_screen.dart';
+import '../../features/portfolio/screens/portfolio_screen.dart';
 
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this._ref) {
@@ -26,9 +28,11 @@ class _RouterNotifier extends ChangeNotifier {
 
     final user = authState.valueOrNull;
     final isOnAuth = state.matchedLocation.startsWith('/auth');
+    final isAuthed = user != null && !user.isGuest;
 
-    if (user == null && !isOnAuth) return '/auth';
-    if (user != null && isOnAuth) return '/dashboard';
+    // Signed-in users shouldn't sit on the login screen.
+    if (isAuthed && isOnAuth) return '/dashboard';
+    // Everyone else (including guests) browses freely — login is never forced.
     return null;
   }
 }
@@ -64,6 +68,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(
+            path: '/watchlist',
+            builder: (_, __) => const WatchlistScreen(),
+          ),
+          GoRoute(
+            path: '/portfolio',
+            builder: (_, __) => const PortfolioScreen(),
+          ),
+          // Kept reachable (e.g. from Home) but no longer a bottom-nav tab.
+          GoRoute(
             path: '/screener',
             builder: (_, __) => const ScreenerScreen(),
           ),
@@ -90,10 +103,11 @@ class ScaffoldWithNav extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final currentIndex = switch (location) {
       String s when s.startsWith('/dashboard') => 0,
-      String s when s.startsWith('/reports')   => 1,
-      String s when s.startsWith('/screener')  => 2,
-      String s when s.startsWith('/premium')   => 3, // upgrade screen, shown under Profile
-      String s when s.startsWith('/profile')   => 3,
+      String s when s.startsWith('/watchlist') => 1,
+      String s when s.startsWith('/reports')   => 2,
+      String s when s.startsWith('/portfolio') => 3,
+      String s when s.startsWith('/premium')   => 4, // upgrade screen, shown under Profile
+      String s when s.startsWith('/profile')   => 4,
       _                                         => 0,
     };
 
@@ -102,14 +116,15 @@ class ScaffoldWithNav extends ConsumerWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (i) {
-          const routes = ['/dashboard', '/reports', '/screener', '/profile'];
+          const routes = ['/dashboard', '/watchlist', '/reports', '/portfolio', '/profile'];
           context.go(routes[i]);
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined),   selectedIcon: Icon(Icons.home),        label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.article_outlined), selectedIcon: Icon(Icons.article),     label: 'Reports'),
-          NavigationDestination(icon: Icon(Icons.filter_list),      selectedIcon: Icon(Icons.filter_list), label: 'Screener'),
-          NavigationDestination(icon: Icon(Icons.person_outline),   selectedIcon: Icon(Icons.person),      label: 'Profile'),
+          NavigationDestination(icon: Icon(Icons.home_outlined),         selectedIcon: Icon(Icons.home),               label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.bookmark_border),       selectedIcon: Icon(Icons.bookmark),           label: 'Watchlist'),
+          NavigationDestination(icon: Icon(Icons.article_outlined),      selectedIcon: Icon(Icons.article),            label: 'Report'),
+          NavigationDestination(icon: Icon(Icons.pie_chart_outline),     selectedIcon: Icon(Icons.pie_chart),          label: 'Portfolio'),
+          NavigationDestination(icon: Icon(Icons.person_outline),        selectedIcon: Icon(Icons.person),             label: 'Profile'),
         ],
       ),
     );

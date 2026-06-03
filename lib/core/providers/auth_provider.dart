@@ -8,14 +8,25 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     _load();
   }
 
+  /// Default identity when no one is signed in. The app opens straight into the
+  /// (appealing) Home as a guest rather than gating behind the login screen.
+  static const _guest = User(
+    id: 'guest',
+    name: 'Guest',
+    subscription: Subscription(status: 'none'),
+    dailyUsage: 0,
+    dailyLimit: 5,
+  );
+
   Future<void> _load() async {
     try {
       final res = await ApiService.instance.get<Map<String, dynamic>>(ApiConstants.me);
       final data = res.data!;
       final user = data['user'] != null ? User.fromJson(data['user'] as Map<String, dynamic>) : null;
-      state = AsyncValue.data(user);
+      // Fall back to a guest so launch never lands on the login screen.
+      state = AsyncValue.data(user ?? _guest);
     } catch (_) {
-      state = const AsyncValue.data(null);
+      state = const AsyncValue.data(_guest);
     }
   }
 
@@ -23,16 +34,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     state = AsyncValue.data(user);
   }
 
-  /// Enter the app as a guest — no account, free tier. Session-only: there is no
-  /// token, so a relaunch (which re-checks /auth/me) returns to the auth screen.
+  /// Enter the app as a guest — no account, free tier.
   void continueAsGuest() {
-    state = const AsyncValue.data(User(
-      id: 'guest',
-      name: 'Guest',
-      subscription: Subscription(status: 'none'),
-      dailyUsage: 0,
-      dailyLimit: 5,
-    ));
+    state = const AsyncValue.data(_guest);
   }
 
   Future<void> logout() async {
@@ -40,7 +44,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       await ApiService.instance.post<void>(ApiConstants.logout);
     } catch (_) {}
     await ApiService.instance.clearTokens();
-    state = const AsyncValue.data(null);
+    // Drop back to a guest session (Home), not the login screen.
+    state = const AsyncValue.data(_guest);
   }
 
   Future<void> refresh() => _load();

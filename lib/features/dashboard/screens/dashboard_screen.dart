@@ -13,13 +13,6 @@ const _popularTickers = ['RELIANCE', 'TCS', 'HDFC', 'INFY', 'ICICIBANK', 'ADANIE
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,17 +30,13 @@ class DashboardScreen extends StatelessWidget {
                     const AppLogo(height: 26),
                     const SizedBox(height: 20),
 
+                    // Welcome hero — brand positioning
+                    const _WelcomeHero(),
+                    const SizedBox(height: 24),
+
                     // Greeting
-                    Text(
-                      '${_greeting()}.',
-                      style: AppText.fraunces(size: 26, weight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Which stock do you want to analyse today?',
-                      style: AppText.body(size: 14, color: AppColors.muted),
-                    ),
-                    const SizedBox(height: 20),
+                    const _Greeting(),
+                    const SizedBox(height: 16),
 
                     // Analyse any Nifty 500 stock
                     _AnalyseCard(),
@@ -77,6 +66,150 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Welcome hero ──────────────────────────────────────────────────────────────
+
+class _WelcomeHero extends StatelessWidget {
+  const _WelcomeHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.text,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome, size: 12, color: Colors.white70),
+                const SizedBox(width: 6),
+                Text('AI-POWERED · 12 AGENTS',
+                    style: AppText.mono(size: 10, weight: FontWeight.w600, color: Colors.white70)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Headline
+          Text(
+            'Clarity on every\nIndian stock.',
+            style: AppText.fraunces(size: 26, weight: FontWeight.w700, color: Colors.white, height: 1.1),
+          ),
+          const SizedBox(height: 10),
+
+          // Sub-copy
+          Text(
+            '12 AI agents debate the bull and bear case to deliver a clear verdict on any Nifty stock — backed by full reasoning.',
+            style: AppText.body(size: 13, color: Colors.white70, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+
+          // Verdict chips
+          const Row(
+            children: [
+              _VerdictChip(label: 'BUY', arrow: '▲', color: AppColors.buy),
+              SizedBox(width: 8),
+              _VerdictChip(label: 'HOLD', arrow: '—', color: AppColors.hold),
+              SizedBox(width: 8),
+              _VerdictChip(label: 'SELL', arrow: '▼', color: AppColors.sell),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // CTA — browse reports (works for guests too)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => context.go('/reports'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.text,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Explore reports',
+                      style: AppText.body(size: 14, weight: FontWeight.w700, color: AppColors.text)),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward, size: 16, color: AppColors.text),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerdictChip extends StatelessWidget {
+  const _VerdictChip({required this.label, required this.arrow, required this.color});
+  final String label;
+  final String arrow;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text('$arrow $label',
+          style: AppText.mono(size: 10, weight: FontWeight.w700, color: color)),
+    );
+  }
+}
+
+// ── Greeting ──────────────────────────────────────────────────────────────────
+
+class _Greeting extends ConsumerWidget {
+  const _Greeting();
+
+  String get _timeOfDay {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final first = user?.firstName;
+    final isGuest = user == null || user.isGuest;
+
+    final heading = isGuest
+        ? 'Welcome to AlgoVest.'
+        : (first != null ? '$_timeOfDay, $first.' : '$_timeOfDay.');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(heading, style: AppText.fraunces(size: 22, weight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(
+          'Which stock do you want to analyse today?',
+          style: AppText.body(size: 14, color: AppColors.muted),
+        ),
+      ],
     );
   }
 }

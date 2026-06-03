@@ -89,6 +89,8 @@ class _ProfileBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (user.isGuest) return const _GuestProfileBody();
+
     return RefreshIndicator(
       color: AppColors.accent,
       onRefresh: () => ref.read(authProvider.notifier).refresh(),
@@ -173,6 +175,106 @@ class _ProfileBody extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Guest profile ─────────────────────────────────────────────────────────────
+
+class _GuestProfileBody extends StatelessWidget {
+  const _GuestProfileBody();
+
+  static const _perks = [
+    (Icons.insights_outlined, 'Request analysis for any Nifty 500 stock'),
+    (Icons.bookmark_added_outlined, 'Save stocks to your watchlist'),
+    (Icons.pie_chart_outline, 'Track your portfolio and its verdicts'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+      children: [
+        // ── Identity header ──
+        Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.person_outline, color: AppColors.accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Browsing as guest',
+                      style: AppText.fraunces(size: 20, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('Not signed in',
+                      style: AppText.body(size: 13, color: AppColors.dim)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // ── Sign-in CTA ──
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Unlock the full experience',
+                  style: AppText.fraunces(size: 18, weight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                'Create a free account to do more with AlgoVest.',
+                style: AppText.body(size: 13, color: AppColors.muted, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              for (final (icon, label) in _perks) ...[
+                Row(
+                  children: [
+                    Icon(icon, size: 18, color: AppColors.accent),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(label,
+                          style: AppText.body(size: 14, color: AppColors.text)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              const SizedBox(height: 2),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => context.push('/auth'),
+                  child: const Text('Sign in / Create account'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        Center(
+          child: Text('AlgoVest · v1.0.0',
+              style: AppText.mono(size: 10, color: AppColors.dim)),
+        ),
+      ],
     );
   }
 }

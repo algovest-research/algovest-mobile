@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for all network access in release builds. Without this, the
+         release AAB has no internet (debug/profile manifests add it only for
+         dev), so API calls silently fail on real devices. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="algovest"
         android:name="${applicationName}"

@@ -15,6 +15,7 @@ class ReportsListScreen extends StatefulWidget {
 class _ReportsListScreenState extends State<ReportsListScreen> {
   List<Report> _reports = [];
   bool _loading = true;
+  bool _error = false;
 
   @override
   void initState() {
@@ -23,17 +24,21 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
   }
 
   Future<void> _load() async {
+    if (!_loading) setState(() { _loading = true; _error = false; });
     try {
       final res = await ApiService.instance.get<List<dynamic>>(ApiConstants.reports);
+      if (!mounted) return;
       setState(() {
         _reports = res.data!
             .map((e) => Report.fromJson(e as Map<String, dynamic>))
             .toList();
         _loading = false;
+        _error = false;
       });
     } catch (e) {
       debugPrint('Reports load error: $e');
-      setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() { _loading = false; _error = true; });
     }
   }
 
@@ -62,7 +67,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
       ),
       body: _loading
           ? _Skeleton()
-          : RefreshIndicator(
+          : _error
+              ? _ErrorState(onRetry: _load)
+              : RefreshIndicator(
               onRefresh: _load,
               child: _filtered.isEmpty
                   ? const Center(child: Text('No reports found'))
@@ -158,6 +165,41 @@ class _ReportCard extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right, size: 16, color: AppColors.dim),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 40, color: AppColors.dim),
+            const SizedBox(height: 14),
+            Text("Couldn't load reports",
+                style: AppText.fraunces(size: 18, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'Check your internet connection and try again.',
+              textAlign: TextAlign.center,
+              style: AppText.body(size: 14, color: AppColors.muted, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),

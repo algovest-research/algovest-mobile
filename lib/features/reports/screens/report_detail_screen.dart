@@ -1,45 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/constants/api.dart';
 import '../../../core/models/report.dart';
 import '../../../core/models/report_detail.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/featured_provider.dart';
+import '../../../core/widgets/login_gate.dart';
 
-class ReportDetailScreen extends StatefulWidget {
+class ReportDetailScreen extends ConsumerStatefulWidget {
   const ReportDetailScreen({super.key, required this.ticker});
   final String ticker;
 
   @override
-  State<ReportDetailScreen> createState() => _ReportDetailScreenState();
+  ConsumerState<ReportDetailScreen> createState() => _ReportDetailScreenState();
 }
 
-class _ReportDetailScreenState extends State<ReportDetailScreen> {
+class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
   ReportDetail? _report;
   bool _loading = true;
   bool _notFound = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  bool _started = false; // ensures the report is fetched at most once, lazily
 
   Future<void> _load() async {
     try {
       final res = await ApiService.instance.get<Map<String, dynamic>>(
         '${ApiConstants.reports}/${Uri.encodeComponent(widget.ticker)}',
       );
+      if (!mounted) return;
       setState(() {
         _report = ReportDetail.fromJson(res.data!);
         _loading = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() { _loading = false; _notFound = true; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+    final isGuest = user == null || user.isGuest;
+
+    // Guests may only open the report of the day; anything else is gated. This
+    // is the single chokepoint, so deep links / restored back-stacks are covered
+    // too — not just taps from the list.
+    if (isGuest) {
+      final featuredAsync = ref.watch(featuredTickerProvider);
+      if (featuredAsync.isLoading) {
+        return _LoadingSkeleton(ticker: widget.ticker);
+      }
+      if (widget.ticker != featuredAsync.valueOrNull) {
+        return _GatedReport(ticker: widget.ticker);
+      }
+    }
+
+    // Allowed — fetch once (deferred until we know access is granted, so a gated
+    // report never triggers a network call).
+    if (!_started) {
+      _started = true;
+      _load();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: _loading
@@ -47,6 +71,39 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           : _notFound || _report == null
               ? _NotFound(ticker: widget.ticker)
               : _ReportBody(report: _report!),
+    );
+  }
+}
+
+// ── Login gate (guest opened a non-free report) ─────────────────────────────────
+
+class _GatedReport extends StatelessWidget {
+  const _GatedReport({required this.ticker});
+  final String ticker;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        leading: const BackButton(color: AppColors.text),
+        title: Text(
+          ticker.replaceAll('.NS', ''),
+          style: AppText.fraunces(size: 17, weight: FontWeight.w800),
+        ),
+      ),
+      body: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: LoginGate(
+          icon: Icons.lock_outline,
+          title: 'Sign in to read this report',
+          message:
+              "Today's free report is on the Reports tab. Sign in or create a free "
+              'account to unlock this report — and every other one.',
+        ),
+      ),
     );
   }
 }

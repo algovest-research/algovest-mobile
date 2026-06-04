@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/constants/api.dart';
 import '../../../core/models/report.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/featured_provider.dart';
 
-class ReportsListScreen extends StatefulWidget {
+class ReportsListScreen extends ConsumerStatefulWidget {
   const ReportsListScreen({super.key});
 
   @override
-  State<ReportsListScreen> createState() => _ReportsListScreenState();
+  ConsumerState<ReportsListScreen> createState() => _ReportsListScreenState();
 }
 
-class _ReportsListScreenState extends State<ReportsListScreen> {
+class _ReportsListScreenState extends ConsumerState<ReportsListScreen> {
   List<Report> _reports = [];
   bool _loading = true;
   bool _error = false;
@@ -44,6 +47,12 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider);
+    final isGuest = user == null || user.isGuest;
+    // The single report a guest may open for free. Null while loading or if it
+    // can't be resolved — in which case nothing is unlocked (all cards gated).
+    final featuredTicker = ref.watch(featuredTickerProvider).valueOrNull;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -69,20 +78,35 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
           ? _Skeleton()
           : _error
               ? _ErrorState(onRetry: _load)
-              : RefreshIndicator(
-              onRefresh: _load,
-              child: _filtered.isEmpty
-                  ? const Center(child: Text('No reports found'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) => _ReportCard(
-                        report: _filtered[i],
-                        onTap: () => context.push('/reports/${_filtered[i].ticker}'),
+              : Column(
+                  children: [
+                    if (isGuest) const _GuestBanner(),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _load,
+                        child: _filtered.isEmpty
+                            ? const Center(child: Text('No reports found'))
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (_, i) {
+                                  final r = _filtered[i];
+                                  final freeToday = isGuest && r.ticker == featuredTicker;
+                                  return _ReportCard(
+                                    report: r,
+                                    // Guests may open only the report of the day; the rest
+                                    // are gated. Signed-in users see everything unlocked.
+                                    locked: isGuest && r.ticker != featuredTicker,
+                                    freeToday: freeToday,
+                                    onTap: () => context.push('/reports/${r.ticker}'),
+                                  );
+                                },
+                              ),
                       ),
                     ),
-            ),
+                  ],
+                ),
     );
   }
 
@@ -100,9 +124,16 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
 }
 
 class _ReportCard extends StatelessWidget {
-  const _ReportCard({required this.report, required this.onTap});
+  const _ReportCard({
+    required this.report,
+    required this.onTap,
+    this.locked = false,
+    this.freeToday = false,
+  });
   final Report report;
   final VoidCallback onTap;
+  final bool locked;    // guest, and this isn't the report of the day
+  final bool freeToday; // guest, and this IS the free report of the day
 
   Color get _verdictColor => switch (report.rclass) {
     RatingClass.buy  => AppColors.buy,
@@ -119,7 +150,8 @@ class _ReportCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          // The free pick is highlighted; everything else uses the default border.
+          border: Border.all(color: freeToday ? AppColors.accent : AppColors.border),
         ),
         child: Row(
           children: [
@@ -147,6 +179,10 @@ class _ReportCard extends StatelessWidget {
                     '${report.ticker.replaceAll('.NS', '')} · ${report.date}',
                     style: AppText.mono(size: 11, color: AppColors.dim),
                   ),
+                  if (freeToday) ...[
+                    const SizedBox(height: 6),
+                    _Tag(text: "TODAY'S FREE REPORT", color: AppColors.accent),
+                  ],
                 ],
               ),
             ),
@@ -164,9 +200,60 @@ class _ReportCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.chevron_right, size: 16, color: AppColors.dim),
+            // Locked reports show a lock; openable ones show the usual chevron.
+            Icon(locked ? Icons.lock_outline : Icons.chevron_right, size: 16, color: AppColors.dim),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Small uppercase pill used for the "free report" tag.
+class _Tag extends StatelessWidget {
+  const _Tag({required this.text, required this.color});
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(text, style: AppText.mono(size: 9, weight: FontWeight.w700, color: color)),
+    );
+  }
+}
+
+/// Slim banner shown to guests above the reports list, explaining the free pick.
+class _GuestBanner extends StatelessWidget {
+  const _GuestBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accent.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_open_outlined, size: 18, color: AppColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Today's report is free to read. Sign in to unlock every report.",
+              style: AppText.body(size: 12.5, color: AppColors.muted, height: 1.35),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -4,7 +4,7 @@
          dev), so API calls silently fail on real devices. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="algovest"
+        android:label="AlgoVest"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

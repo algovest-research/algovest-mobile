@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/requests_provider.dart';
 import '../../../core/providers/featured_provider.dart';
+import '../../../core/providers/viewed_today_provider.dart';
 import '../../../core/models/stock_request.dart';
 import '../../../core/models/report.dart';
 import '../../../core/widgets/app_logo.dart';
@@ -50,18 +51,11 @@ class DashboardScreen extends StatelessWidget {
                     // Your analysis requests (hidden for guests / when empty)
                     const _YourRequests(),
 
-                    Text('Recently Viewed', style: AppText.fraunces(size: 17, weight: FontWeight.w700)),
-                    const SizedBox(height: 12),
+                    // Reports opened today (signed-in only; hides for guests)
+                    const _RecentlyViewed(),
+                    const SizedBox(height: 24),
                   ],
                 ),
-              ),
-            ),
-
-            // TODO: recently viewed list
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _EmptyRecentlyViewed(),
               ),
             ),
           ],
@@ -314,6 +308,156 @@ class _StatCell extends StatelessWidget {
           const SizedBox(height: 4),
           Text(value, style: AppText.fraunces(size: 18, weight: FontWeight.w700)),
         ],
+      ),
+    );
+  }
+}
+
+// ── Recently viewed ─────────────────────────────────────────────────────────────
+
+/// Reports the signed-in user opened today, joined from `viewed-today`. Hidden
+/// entirely for guests; shows a skeleton while loading, an empty state once
+/// loaded with nothing yet, and fails silently (it's a secondary section).
+class _RecentlyViewed extends ConsumerWidget {
+  const _RecentlyViewed();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    if (user == null || user.isGuest) return const SizedBox.shrink();
+
+    final header = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text('Recently Viewed',
+          style: AppText.fraunces(size: 17, weight: FontWeight.w700)),
+    );
+
+    return ref.watch(viewedTodayProvider).when(
+          loading: () => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [header, const _RecentlyViewedSkeleton()],
+          ),
+          // Secondary section — don't shout an error on Home, just hide.
+          error: (_, __) => const SizedBox.shrink(),
+          data: (reports) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              header,
+              if (reports.isEmpty)
+                _EmptyRecentlyViewed()
+              else
+                _RecentlyViewedList(reports: reports),
+            ],
+          ),
+        );
+  }
+}
+
+class _RecentlyViewedList extends StatelessWidget {
+  const _RecentlyViewedList({required this.reports});
+  final List<Report> reports;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = reports.take(6).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < shown.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, color: AppColors.border, indent: 14, endIndent: 14),
+            _RecentlyViewedRow(report: shown[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentlyViewedRow extends StatelessWidget {
+  const _RecentlyViewedRow({required this.report});
+  final Report report;
+
+  Color get _verdictColor => switch (report.rclass) {
+    RatingClass.buy  => AppColors.buy,
+    RatingClass.sell => AppColors.sell,
+    RatingClass.hold => AppColors.hold,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => context.push('/reports/${report.ticker}'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _verdictColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(report.arrow, style: TextStyle(fontSize: 14, color: _verdictColor)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(report.companyName,
+                      style: AppText.body(size: 13.5, weight: FontWeight.w600),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(report.ticker.replaceAll('.NS', ''),
+                      style: AppText.mono(size: 11, color: AppColors.dim)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: _verdictColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(report.rating.toUpperCase(),
+                  style: AppText.mono(size: 10, weight: FontWeight.w700, color: _verdictColor)),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, size: 16, color: AppColors.dim),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentlyViewedSkeleton extends StatelessWidget {
+  const _RecentlyViewedSkeleton();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: const Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.dim),
+        ),
       ),
     );
   }

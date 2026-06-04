@@ -7,6 +7,7 @@ import '../../../core/models/report.dart';
 import '../../../core/models/report_detail.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/featured_provider.dart';
+import '../../../core/providers/viewed_today_provider.dart';
 import '../../../core/widgets/login_gate.dart';
 
 class ReportDetailScreen extends ConsumerStatefulWidget {
@@ -33,6 +34,10 @@ class _ReportDetailScreenState extends ConsumerState<ReportDetailScreen> {
         _report = ReportDetail.fromJson(res.data!);
         _loading = false;
       });
+      // Record the view (best-effort) so it surfaces under "Recently viewed".
+      // No-op for guests; we use the report's own ticker so it matches the
+      // reports list when the dashboard joins them.
+      recordReportView(ref, _report!.ticker);
     } catch (_) {
       if (!mounted) return;
       setState(() { _loading = false; _notFound = true; });

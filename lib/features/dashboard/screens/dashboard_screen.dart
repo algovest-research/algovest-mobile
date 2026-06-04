@@ -36,10 +36,6 @@ class DashboardScreen extends StatelessWidget {
                     const _WelcomeHero(),
                     const SizedBox(height: 24),
 
-                    // Greeting
-                    const _Greeting(),
-                    const SizedBox(height: 16),
-
                     // Report of the day — tap to open (free for guests too)
                     const _ReportOfTheDay(),
 
@@ -179,42 +175,6 @@ class _VerdictChip extends StatelessWidget {
       ),
       child: Text('$arrow $label',
           style: AppText.mono(size: 10, weight: FontWeight.w700, color: color)),
-    );
-  }
-}
-
-// ── Greeting ──────────────────────────────────────────────────────────────────
-
-class _Greeting extends ConsumerWidget {
-  const _Greeting();
-
-  String get _timeOfDay {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
-    final first = user?.firstName;
-    final isGuest = user == null || user.isGuest;
-
-    final heading = isGuest
-        ? 'Welcome to AlgoVest.'
-        : (first != null ? '$_timeOfDay, $first.' : '$_timeOfDay.');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(heading, style: AppText.fraunces(size: 22, weight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(
-          'Which stock do you want to analyse today?',
-          style: AppText.body(size: 14, color: AppColors.muted),
-        ),
-      ],
     );
   }
 }

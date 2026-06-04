@@ -40,6 +40,9 @@ class DashboardScreen extends StatelessWidget {
                     const _Greeting(),
                     const SizedBox(height: 16),
 
+                    // Report of the day — tap to open (free for guests too)
+                    const _ReportOfTheDay(),
+
                     // Analyse any Nifty 500 stock
                     _AnalyseCard(),
                     const SizedBox(height: 16),
@@ -47,9 +50,6 @@ class DashboardScreen extends StatelessWidget {
                     // Stats row
                     _StatsRow(),
                     const SizedBox(height: 20),
-
-                    // Report of the day — tap to open (free for guests too)
-                    const _ReportOfTheDay(),
 
                     // Your analysis requests (hidden for guests / when empty)
                     const _YourRequests(),

@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/requests_provider.dart';
+import '../../../core/providers/featured_provider.dart';
 import '../../../core/models/stock_request.dart';
+import '../../../core/models/report.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../widgets/request_analysis_sheet.dart';
 
@@ -45,6 +47,9 @@ class DashboardScreen extends StatelessWidget {
                     // Stats row
                     _StatsRow(),
                     const SizedBox(height: 20),
+
+                    // Report of the day — tap to open (free for guests too)
+                    const _ReportOfTheDay(),
 
                     // Your analysis requests (hidden for guests / when empty)
                     const _YourRequests(),
@@ -368,6 +373,127 @@ class _EmptyRecentlyViewed extends StatelessWidget {
         child: Text(
           'No reports viewed today',
           style: AppText.body(size: 13, color: AppColors.muted),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Report of the day ───────────────────────────────────────────────────────────
+
+class _ReportOfTheDay extends ConsumerWidget {
+  const _ReportOfTheDay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(featuredReportProvider).maybeWhen(
+          data: (report) {
+            // No report resolvable — hide the section entirely.
+            if (report == null) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('REPORT OF THE DAY', style: AppText.mono(size: 10, color: AppColors.dim)),
+                const SizedBox(height: 10),
+                _ReportOfTheDayCard(report: report),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
+          // While loading / on error, render nothing (no layout jump for a
+          // section that may not exist).
+          orElse: () => const SizedBox.shrink(),
+        );
+  }
+}
+
+class _ReportOfTheDayCard extends StatelessWidget {
+  const _ReportOfTheDayCard({required this.report});
+  final Report report;
+
+  Color get _verdictColor => switch (report.rclass) {
+    RatingClass.buy  => AppColors.buy,
+    RatingClass.sell => AppColors.sell,
+    RatingClass.hold => AppColors.hold,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/reports/${report.ticker}'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.accent.withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Verdict circle
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _verdictColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(report.arrow, style: TextStyle(fontSize: 16, color: _verdictColor)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(report.companyName,
+                          style: AppText.body(size: 14, weight: FontWeight.w600),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${report.ticker.replaceAll('.NS', '')} · ${report.date}',
+                        style: AppText.mono(size: 11, color: AppColors.dim),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _verdictColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    report.rating.toUpperCase(),
+                    style: AppText.mono(size: 11, weight: FontWeight.w700, color: _verdictColor),
+                  ),
+                ),
+              ],
+            ),
+            if (report.summary.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                report.summary,
+                style: AppText.body(size: 13, color: AppColors.muted, height: 1.45),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text('Read full report',
+                    style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.accent)),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_forward, size: 14, color: AppColors.accent),
+              ],
+            ),
+          ],
         ),
       ),
     );

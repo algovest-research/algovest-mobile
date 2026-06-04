@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
+import '../../features/splash/screens/splash_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/reports/screens/reports_list_screen.dart';
 import '../../features/reports/screens/report_detail_screen.dart';
@@ -42,8 +43,12 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     refreshListenable: notifier,
     redirect: notifier.redirect,
-    initialLocation: '/dashboard',
+    initialLocation: '/splash',
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (_, __) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/auth',
         builder: (_, __) => const AuthScreen(),

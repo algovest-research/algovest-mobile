@@ -16,6 +16,7 @@ class ApiConstants {
 
   // Reports
   static const reports    = '/api/v1/reports';
+  static const featured   = '/api/v1/reports/featured'; // the one free "report of the day"
 
   // User
   static const myRequests    = '/api/v1/users/me/requests';

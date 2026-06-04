@@ -155,13 +155,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         if (access != null && refresh != null) {
           await ApiService.instance.storeTokens(access, refresh);
         }
-        setState(() => _step = _Step.success);
-        // Set user in auth provider — router redirect handles navigation
+        // Load the signed-in user into the auth provider. If the verify
+        // response carried the user, use it; otherwise fetch /me with the new
+        // token. Either way we must end up non-guest so navigation proceeds.
         if (data['user'] != null) {
           ref.read(authProvider.notifier).setUser(
             User.fromJson(data['user'] as Map<String, dynamic>),
           );
+        } else {
+          await ref.read(authProvider.notifier).refresh();
         }
+        if (!mounted) return;
+        setState(() => _step = _Step.success);
+        // Navigate explicitly rather than relying solely on the router redirect
+        // (which silently no-ops if the user didn't resolve). Brief pause lets
+        // the success tick show.
+        await Future.delayed(const Duration(milliseconds: 700));
+        if (mounted) context.go('/dashboard');
       } else {
         setState(() {
           _otpError = data['message'] as String? ?? 'Invalid OTP. Please try again.';
@@ -169,9 +179,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _clearOtp();
       }
     } catch (_) {
-      setState(() => _otpError = 'Something went wrong. Please try again.');
+      if (mounted) setState(() => _otpError = 'Something went wrong. Please try again.');
     } finally {
-      setState(() => _submitting = false);
+      if (mounted) setState(() => _submitting = false);
     }
   }
 

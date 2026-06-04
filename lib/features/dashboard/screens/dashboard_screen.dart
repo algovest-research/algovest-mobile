@@ -390,13 +390,11 @@ class _ReportOfTheDay extends ConsumerWidget {
           data: (report) {
             // No report resolvable — hide the section entirely.
             if (report == null) return const SizedBox.shrink();
+            // Card carries its own accent header, so no external label needed.
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('REPORT OF THE DAY', style: AppText.mono(size: 10, color: AppColors.dim)),
-                const SizedBox(height: 10),
                 _ReportOfTheDayCard(report: report),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
               ],
             );
           },
@@ -419,85 +417,211 @@ class _ReportOfTheDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ret = report.expectedReturn;
+    final hasStats = ret != null || report.priceTarget != null;
+
     return GestureDetector(
       onTap: () => context.push('/reports/${report.ticker}'),
       child: Container(
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.accent.withOpacity(0.4)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.accent.withOpacity(0.45), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withOpacity(0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                // Verdict circle
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: _verdictColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(report.arrow, style: TextStyle(fontSize: 16, color: _verdictColor)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // ── Accent header strip ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withOpacity(0.1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome, size: 13, color: AppColors.accent),
+                  const SizedBox(width: 6),
+                  Text("REPORT OF THE DAY",
+                      style: AppText.mono(size: 10, weight: FontWeight.w700, color: AppColors.accent)),
+                  const Spacer(),
+                  Text('FREE TO READ',
+                      style: AppText.mono(size: 9, weight: FontWeight.w700, color: AppColors.accent)),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Company + verdict ──
+                  Row(
                     children: [
-                      Text(report.companyName,
-                          style: AppText.body(size: 14, weight: FontWeight.w600),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${report.ticker.replaceAll('.NS', '')} · ${report.date}',
-                        style: AppText.mono(size: 11, color: AppColors.dim),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: _verdictColor.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(report.arrow, style: TextStyle(fontSize: 18, color: _verdictColor)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(report.companyName,
+                                style: AppText.fraunces(size: 18, weight: FontWeight.w700),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 2),
+                            Text('${report.ticker.replaceAll('.NS', '')} · ${report.date}',
+                                style: AppText.mono(size: 11, color: AppColors.dim)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _verdictColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(report.rating.toUpperCase(),
+                            style: AppText.mono(size: 12, weight: FontWeight.w700, color: Colors.white)),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _verdictColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+
+                  // ── Stats: expected return front and centre ──
+                  if (hasStats) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.s2.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (ret != null)
+                              Expanded(
+                                child: _Metric(
+                                  label: 'EXPECTED RETURN',
+                                  value: '${ret >= 0 ? '+' : ''}${ret.toStringAsFixed(1)}%',
+                                  valueColor: ret >= 0 ? AppColors.buy : AppColors.sell,
+                                  big: true,
+                                ),
+                              ),
+                            if (ret != null && report.priceTarget != null)
+                              const VerticalDivider(width: 22, thickness: 1, color: AppColors.border),
+                            if (report.priceTarget != null)
+                              Expanded(child: _Metric(label: 'PRICE TARGET', value: _money(report.priceTarget!))),
+                            if (report.timeHorizon != null) ...[
+                              const VerticalDivider(width: 22, thickness: 1, color: AppColors.border),
+                              Expanded(child: _Metric(label: 'HORIZON', value: report.timeHorizon!)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  if (report.summary.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      report.summary,
+                      style: AppText.body(size: 13, color: AppColors.muted, height: 1.45),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  const SizedBox(height: 16),
+                  // ── CTA ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => context.push('/reports/${report.ticker}'),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Read full report',
+                              style: AppText.body(size: 14, weight: FontWeight.w700, color: Colors.white)),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward, size: 16, color: Colors.white),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    report.rating.toUpperCase(),
-                    style: AppText.mono(size: 11, weight: FontWeight.w700, color: _verdictColor),
-                  ),
-                ),
-              ],
-            ),
-            if (report.summary.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                report.summary,
-                style: AppText.body(size: 13, color: AppColors.muted, height: 1.45),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                ],
               ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text('Read full report',
-                    style: AppText.body(size: 13, weight: FontWeight.w700, color: AppColors.accent)),
-                const SizedBox(width: 4),
-                const Icon(Icons.arrow_forward, size: 14, color: AppColors.accent),
-              ],
             ),
           ],
         ),
       ),
     );
   }
+}
+
+/// A labelled stat used inside the Report-of-the-Day card.
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value, this.valueColor, this.big = false});
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool big;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: AppText.mono(size: 9, weight: FontWeight.w600, color: AppColors.dim)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.fraunces(
+            size: big ? 22 : 15,
+            weight: FontWeight.w700,
+            color: valueColor ?? AppColors.text,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact rupee formatter with thousands grouping (₹1,234 / ₹1,234.50).
+String _money(double v) {
+  final isInt = v == v.roundToDouble();
+  final s = isInt ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+  final parts = s.split('.');
+  final intPart = parts[0];
+  final buf = StringBuffer();
+  for (var i = 0; i < intPart.length; i++) {
+    if (i > 0 && (intPart.length - i) % 3 == 0) buf.write(',');
+    buf.write(intPart[i]);
+  }
+  final grouped = buf.toString();
+  return '₹${parts.length > 1 ? '$grouped.${parts[1]}' : grouped}';
 }
 
 // ── Your requests ─────────────────────────────────────────────────────────────
